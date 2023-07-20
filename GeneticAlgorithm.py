@@ -1,129 +1,126 @@
 import random
+import heapq
+import time
 
-class geneticAlgorithm:
-    populationSize = 500
-    mutationRate = 0.1
-
-    def __init__(self, W: int, m: int, w, v, c):
+class knapSack:
+    def __init__(self, W, m, w, v, c) -> None:
         self.n = len(w)
         self.W = W
         self.m = m
         self.w = w
         self.v = v
         self.c = c
-        self.population = [random.getrandbits(
-            self.n) for _ in range(geneticAlgorithm.populationSize)]
-        self.bestChrom = 0
-        self.bestV = 0
+        self.res = 0
+        self.state = 0
 
-    def fitness(self, chromosome):
-        totalV = 0
-        totalW = 0
-        classCount = set()
-        for i in range(self.n):
-            bit = (chromosome & (1 << i))
-            if not bit:
-                continue
-
-            totalV += self.v[-1 - i]
-            totalW += self.w[-1 - i]
-            if totalW > self.W:
+def fitness(data, ind):
+    totalV = 0
+    totalW = 0
+    classCount = set()
+    for i in range(data.n):
+        if (ind >> i) & 1 == 1:
+            totalW += data.w[i]
+            if totalW > data.W:
                 return 0
-            classCount.add(self.c[-1 - i])
+            totalV += data.v[i]
+            classCount.add(data.c[i])
 
-        if len(classCount) != self.m:
-            return 0
+    if len(classCount) != data.m:
+        return 0
 
-        if totalV > self.bestV:
-            self.bestV = totalV
-            self.bestChrom = chromosome
+    if totalV > data.res:
+        data.res = totalV
+        data.state = ind
 
-        return totalV
+    return totalV
 
-    def selection(self, fitnesses):
-        choices = random.sample(range(len(self.population)), 4)
-        parent1 = 0
-        maxFitness = -1
-        for i in choices[:2]:
-            if fitnesses[i] > maxFitness:
-                parent1 = i
-                maxFitness = fitnesses[i]
+def selection(data, fitnesses):
+    choices = random.sample(range(len(data.population)), 4)
+    parent1 = 0
+    maxFitness = -1
+    for i in choices[:2]:
+        if fitnesses[i] > maxFitness:
+            parent1 = i
+            maxFitness = fitnesses[i]
 
-        parent2 = 0
-        maxFitness = -1
-        for i in choices[2:]:
-            if fitnesses[i] > maxFitness:
-                parent2 = i
-                maxFitness = fitnesses[i]
+    parent2 = 0
+    maxFitness = -1
+    for i in choices[2:]:
+        if fitnesses[i] > maxFitness:
+            parent2 = i
+            maxFitness = fitnesses[i]
 
-        return self.population[parent1], self.population[parent2]
+    return data.population[parent1], data.population[parent2]
 
-    def crossover(self, parent1, parent2):
-        c = random.randrange(self.n)
-        offspring1 = (parent1 & ((1 << c) - 1)) + \
-            (parent2 & (((1 << (self.n - c)) - 1) << c))
-        offspring2 = (parent2 & ((1 << c) - 1)) + \
-            (parent1 & (((1 << (self.n - c)) - 1) << c))
-        return offspring1, offspring2
+def bitExtracted(number, k):
+    return ((1 << k) - 1) & number
 
-    def mutate(self, chromosome):
-        c = random.randrange(0, self.n)
-        return chromosome ^ (1 << c)
+def crossover(data, parent1, parent2):
+    pos = random.randrange(data.n)
+    p11 = bitExtracted(parent1, pos)
+    p12 = parent1 >> pos
+    p21 = bitExtracted(parent2, pos)
+    p22 = parent2 >> pos
+    offspring1 = p11 | (p22 << pos)
+    offspring2 = p21 | (p12 << pos)
+    return offspring1, offspring2
 
-    def bitBest(self):
-        _ = [self.fitness(chrom) for chrom in self.population]
-        return self.bestV, self.bestChrom
+def mutate(data, ind):
+    pos = random.randrange(0, data.n)
+    return (1 << pos) ^ ind
 
-    def solve(self, maxGen):
-        for _ in range(maxGen):
-            fitnesses = [self.fitness(chrom) for chrom in self.population]
-            newPopulation = []
+def solve(data, maxGen, populationSize, mutationRate):
+    population = [random.getrandbits(data.n) for _ in range(populationSize)]
+    for _ in range(maxGen):
+        fitnesses = []
+        for ind in population:
+            fitnesses.append((-fitness(data, ind), ind))
+        newPopulation = []
 
-            newPopulation.append(self.bestChrom)
+        for _ in range(0, populationSize, 2):
+            parent1 = heapq.heappop(fitnesses)[1]
+            parent2 = heapq.heappop(fitnesses)[1]
+            offspring1, offspring2 = crossover(data, parent1, parent2)
 
-            for _ in range(0, geneticAlgorithm.populationSize, 2):
-                parent1, parent2 = self.selection(fitnesses)
-                offspring1, offspring2 = self.crossover(parent1, parent2)
+            if random.random() < mutationRate:
+                offspring1 = mutate(data, offspring1)
+            if random.random() < mutationRate:
+                offspring2 = mutate(data, offspring2)
 
-                if random.random() < geneticAlgorithm.mutationRate:
-                    offspring1 = self.mutate(offspring1)
-                if random.random() < geneticAlgorithm.mutationRate:
-                    offspring2 = self.mutate(offspring2)
+            newPopulation.append(offspring1)
+            newPopulation.append(offspring2)
 
-                newPopulation.append(offspring1)
-                newPopulation.append(offspring2)
+        del population
+        population = newPopulation
 
-            del self.population
-            self.population = newPopulation
-
-        solution = self.bitBest()
-        state = ", ".join(bin(solution[1])[2:].rjust(self.n, '0'))
-        return str(solution[0]), state
-
+    _ = [fitness(data, ind) for ind in population]
 
 if __name__ == "__main__":
-    # N = 10
-    # for i in range(N):
-        i = 8
-        with open(f"./Testcases/Input/input{i}.txt") as fi:
+    N = 10
+    for testID in range(N):
+        with open(f"./Testcases/Input/input{testID}.txt") as fi:
             lines = fi.readlines()
             W = int(lines[0])
             m = int(lines[1])
             w = [int(l) for l in lines[2].strip().split(', ')]
             v = [int(l) for l in lines[3].strip().split(', ')]
             c = [int(l) for l in lines[4].strip().split(', ')]
-        bestV = 0
-        bestSolution = None
-        maxIter = 1
-        for _ in range(maxIter):
-            gen = geneticAlgorithm(W, m, w, v, c)
-            solution = gen.solve(maxGen=200)
-            if int(solution[0]) > bestV:
-                bestV = int(solution[0])
-                bestSolution = solution
 
-        with open(f"./Testcases/Output/output{i}.txt", 'w') as fo:
-            res = bestSolution[0]
-            state = bestSolution[1]
-            fo.write(f"{bestSolution[0]}\n")
-            fo.write(f"{bestSolution[1]}")
+        data = knapSack(W, m, w, v, c)
+        res = 0
+        state = 0
+        maxIter = 5
+        start = time.time()
+        for _ in range(maxIter):
+            solve(data, maxGen=200, populationSize=500, mutationRate=0.1)
+            if data.res > res:
+                res = data.res
+                state = data.state
+        end = time.time()
+        duration = end - start
+        print(f"Test {testID} " + "Elapsed time: {:.2f} seconds".format(duration))
+
+        with open(f"./Testcases/Output/output{testID}.txt", 'w') as fo:
+            fo.write(f"{res}\n")
+            sequence = '{0:b}'.format(state)
+            fo.write(f"{', '.join(sequence)}")

@@ -1,9 +1,9 @@
 import random
 import heapq
 import numpy
+import time
 
-class localBeamSearch:
-
+class knapSack:
     def __init__(self, W, m, w, v, c) -> None:
         self.n = len(w)
         self.W = W
@@ -11,61 +11,72 @@ class localBeamSearch:
         self.w = w
         self.v = v
         self.c = c
-        
-    def evaluate(self, state):
-        totalW = 0
-        totalV = 0
-        classCount = 0
-
-        for i in range(self.n):
-            if (state >> i) & 1 == 1:
-                totalW += self.w[i]
-                if totalW > W:
-                    return self.W - totalW
-                
-                totalV += self.v[i]
-                classCount |= (1 << (self.c[i] - 1))
-        
-        if (classCount + 1) != (1 << self.m):
-            return 0
-        
-        return totalV
-
-    def generateState(self):
-        state = 0
-        for i in range(self.n):
-            bit = random.randint(0, 1)
-            state |= (bit << i) # Reverse bit
-        return (self.evaluate(state), state)
+        self.res = 0
+        self.state = 0
     
-    def generateSuccessors(self, prevState, h):
-        for i in range(self.n):
-            successor = prevState ^ (1 << i) # reverse bit
-            value = self.evaluate(successor)
-            heapq.heappush(h, (value * -1, successor))
+def evaluate(data, state):
+    totalW = 0
+    totalV = 0
+    classCount = set()
 
-    def solve(self, beamWidth):
-        beamDepth = 100
-        h = [self.generateState()]
-        for _ in range(beamDepth):
-            for k in range(beamWidth):
-                self.generateSuccessors(h[k][1], h)
+    for i in range(data.n):
+        if (state >> i) & 1 == 1:
+            totalW += data.w[i]
+            if totalW > data.W:
+                return 0
             
-            bestSuccessors = [heapq.heappop(h) for _ in range(beamWidth)]
-            h = bestSuccessors
-        
-        return h[0][0] * (-1), h[0][1]
+            totalV += data.v[i]
+            classCount.add(data.c[i])
+    
+    if len(classCount) != data.m:
+        return 0
+    
+    if totalV > data.res:
+        data.res = totalV
+        data.state = state
 
-    def checkConstraint(self):
-        if W == 0 or len(numpy.unique(self.c)) != m:
-            return True
-        return False
+    return totalV
+
+def generateState(data):
+    state = 0
+    for i in range(data.n):
+        bit = random.randint(0, 1)
+        if bit:
+            state = (1 << i) | state
+    return (-evaluate(data, state), state)
+
+def generateSuccessors(data, parent, heap):
+    for i in range(data.n):
+        successor = (1 << i) ^ parent
+        value = evaluate(data, successor)
+        heapq.heappush(heap, (-value, successor))
+
+def solve(data, beamWidth):
+    beamDepth = 100
+    heap = [generateState(data)]
+    for _ in range(beamDepth):
+        for i in range(beamWidth):
+                generateSuccessors(data, heap[i][1], heap)
+        
+        tmp = [heapq.heappop(heap) for _ in range(beamWidth)]
+        del heap
+        heap = tmp
+    
+    if -heap[0][0] > data.res:
+        data.res = -heap[0][0]
+        data.state = heap[0][1]
+
+def checkConstraint(data):
+    if len(numpy.unique(data.c)) != data.m:
+        return True
+    return False
 
 if __name__ == "__main__":
-    # N = 8
-    # for i in range(N):
-        i = 8
-        with open(f"./Testcases/Input/input{i}.txt") as fi:
+    #TLE on input9
+    #TLE on input8 with beamWidth = 20
+    N = 8
+    for testID in range(N):
+        with open(f"./Testcases/Input/input{testID}.txt") as fi:
             lines = fi.readlines() 
             W = int(lines[0])
             m = int(lines[1])
@@ -73,13 +84,21 @@ if __name__ == "__main__":
             v = [int(l) for l in lines[3].strip().split(', ')]
             c = [int(l) for l in lines[4].strip().split(', ')]
         
-        solution = (0, 0)
-        knapSacks = localBeamSearch(W, m, w, v, c)
-        if not knapSacks.checkConstraint():
-            solution = localBeamSearch(W, m, w, v, c).solve(beamWidth=20)
-            
+        data = knapSack(W, m, w, v, c)
         
-        with open(f"./Testcases/Output/output{i}.txt", 'w') as fo:
-            fo.write(f"{solution[0]}\n")
-            sequence = '{0:b}'.format(solution[1])
+        start = time.time()
+        if not checkConstraint(data):
+            maxIter = 3
+            if testID > 7:
+                maxIter = 1
+            for iteration in range(maxIter):
+                tmp = solve(data, beamWidth=20)
+ 
+        end = time.time()
+        duration = end - start
+        print(f"Test {testID} " + "Elapsed time: {:.2f} seconds".format(duration))
+            
+        with open(f"./Testcases/Output/output{testID}.txt", 'w') as fo:
+            fo.write(f"{data.res}\n")
+            sequence = '{0:b}'.format(data.state)
             fo.write(f"{', '.join(sequence)}")
