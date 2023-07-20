@@ -34,7 +34,7 @@ def read_input(file_path):
     with open(file_path, 'r') as file:
         W = int(file.readline().strip())
         m = int(file.readline().strip())
-        weights = list(map(float, file.readline().strip().split(', ')))
+        weights = list(map(float, file.readline().strip().split(', '))) #input file
         values = list(map(int, file.readline().strip().split(', ')))
         classes = list(map(int, file.readline().strip().split(', ')))
         
@@ -42,20 +42,29 @@ def read_input(file_path):
 
 
 # Write output to file
-def write_output(file_path, max_value, best_combination):
+def write_output(file_path, max_value, best_combination, is_skipped=False):
     with open(file_path, 'w') as file:
-        file.write(str(max_value) + '\n')
-        file.write(', '.join(best_combination))
+        if is_skipped:
+            file.write("TLE")
+        else:
+            file.write(str(max_value) + '\n') #end line
+            file.write(', '.join(best_combination))
 
 
 # Main function
-if __name__ == "__main__":
-    for i in range(3):
-        input_file = f'./Testcases/Input/input{i}.txt'
-        output_file = f'./Testcases/Output/output{i}.txt'
+def main():
+    for i in range(10):
+        input_file = f'input{i}.txt'
+        output_file = f'output{i}.txt'
+        output_file_skipped = f'output{i}_skipped.txt'  # For skipped cases
         
         W, m, weights, values, classes = read_input(input_file)
         
+        if len(values) > 20:
+            print(f"Skipping {input_file} as the number of values (n={len(values)}) is greater than 20.")
+            write_output(output_file_skipped, 0, [], is_skipped=True)
+            continue
+
         start_time = time.time()
         max_value, best_combination = knapsack_brute_force(W, m, weights, values, classes)
         end_time = time.time()
@@ -64,3 +73,5 @@ if __name__ == "__main__":
         write_output(output_file, max_value, best_combination)
         
         print(f"Execution time for {input_file}: {execution_time} milliseconds")
+
+main()
